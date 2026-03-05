@@ -1,29 +1,102 @@
 # vibe-auditor
 
-FlowlessAI Vibe Auditor CLI.
+> **Public Beta** — [flowlessai.one](https://flowlessai.one)
+
+AI-powered code auditor for your local projects. Finds what compilers and tests miss. No prompts. No setup.
+
+Built for developers shipping AI-generated code who need a second pair of eyes before production.
+
+---
 
 ## Install
 
 ```bash
-npm i -g vibe-auditor
+npm i -g @flowlessai/vibe-auditor
 ```
 
-## Usage
+Requires **Node.js 18+** or **Bun 1.0+**.
+
+---
+
+## Authentication
 
 ```bash
-auditor --help
 auditor login
+```
+
+Generates a 6-digit code and opens a verification URL. Authenticate once in your browser — your session is stored locally and reused across projects.
+
+```bash
 auditor logout
-auditor status
+```
+
+Revokes your session remotely and removes the local token.
+
+---
+
+## Auditing a Project
+
+```bash
+# Audit the current directory
 auditor .
+
+# Audit a specific path
 auditor <directory>
+
+# Audit with additional context for the AI
+auditor . -m "Focus on the payment flow"
+auditor . -m "We just migrated from JWT to sessions"
+```
+
+Files listed in `.gitignore` are automatically excluded. No configuration required.
+
+---
+
+## How It Works
+
+1. **Scan** — the CLI collects your project files, respecting `.gitignore`
+2. **Upload** — files are compressed and sent securely to FlowLessAI
+3. **Analysis** — the AI audits your entire codebase with full cross-file context
+4. **Review** — findings and proposed fixes appear in your terminal as they arrive
+5. **Apply** — review each fix individually and choose to apply or discard
+
+Your analysis history is saved automatically and accessible at [flowlessai.one](https://flowlessai.one).
+
+---
+
+## Pause & Resume
+
+Press `Ctrl+C` at any point during analysis to pause the task gracefully.
+
+```bash
+# Resume a paused task
 auditor resume <taskId>
 ```
 
-## Behavior
+The task ID is printed when you pause and is also available in your history at [flowlessai.one](https://flowlessai.one).
 
-- `login`: starts device authentication and stores a token at `~/.config/flowlessai/auditor-auth.json`.
-- `logout`: revokes the remote session and removes the local token.
-- `auditor <directory>`: uploads your project and shows a live status UI.
-- When the task is done, the CLI downloads the output ZIP in memory, compares it with your local project, shows GitHub-style diffs for changed files, and asks for `Y/N` to apply or discard.
-- `Ctrl+C` during processing pauses the task and prints the resume command.
+---
+
+## Commands
+
+| Command | Description |
+|---|---|
+| `auditor login` | Authenticate your device |
+| `auditor logout` | Revoke your session |
+| `auditor .` | Audit current directory |
+| `auditor <path>` | Audit a specific directory |
+| `auditor . -m "<note>"` | Audit with extra context for the AI |
+| `auditor resume <taskId>` | Resume a paused task |
+| `auditor --help` | Show usage guide |
+
+---
+
+## Beta
+
+vibe-auditor is currently in **public beta**. Functionality may change between releases.
+
+Found a bug or have feedback? Reach us at [sales@flowlessai.one](mailto:sales@flowlessai.one)
+
+---
+
+[flowlessai.one](https://flowlessai.one) · [@flowlessai](https://x.com/flowlessai)
