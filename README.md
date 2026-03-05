@@ -11,7 +11,7 @@ Built for developers shipping AI-generated code who need a second pair of eyes b
 ## Install
 
 ```bash
-npm i -g @flowlessai/vibe-auditor
+npm i -g vibe-auditor
 ```
 
 Requires **Node.js 18+** or **Bun 1.0+**.
