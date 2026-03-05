@@ -1,15 +1,32 @@
 # vibe-auditor
 
-To install dependencies:
+Flowless Auditor CLI based on `openapi.json`.
+
+## Setup
 
 ```bash
 bun install
 ```
 
-To run:
+## Run
 
 ```bash
-bun run index.ts
+bun run index.ts --help
 ```
 
-This project was created using `bun init` in bun v1.3.10. [Bun](https://bun.com) is a fast all-in-one JavaScript runtime.
+## Commands
+
+```bash
+auditor login
+auditor logout
+auditor resume <taskId>
+auditor <directory>    # use "." for current directory
+```
+
+## Behavior
+
+- `login`: starts device login polling and saves token globally at `~/.config/flowlessai/auditor-auth.json`.
+- `logout`: revokes remote token and removes local token.
+- `auditor <directory>`: zips the project in memory (ignoring `.gitignore` files when Git metadata is available), starts an audit task, and shows a real-time animated processing UI.
+- `Ctrl+C` during live task: pauses the task, exits, and prints the `auditor resume <taskId>` command.
+- end of task: previews diffs in colored GitHub-style terminal output and asks whether to apply them locally.
