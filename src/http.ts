@@ -1,5 +1,5 @@
-import { API_BASE_URL } from "./config";
-import type { RequestBody } from "./types";
+import { API_BASE_URL } from "./config.ts";
+import type { RequestBody } from "./types.ts";
 
 export async function request<T>(
   method: string,

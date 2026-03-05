@@ -1,18 +1,18 @@
 import { stat } from "node:fs/promises";
 import path from "node:path";
-import { API_BASE_URL, POLL_INTERVAL_MS } from "./config";
-import { request } from "./http";
-import { monitorTask, resetLiveRender } from "./monitor";
-import { zipProject } from "./project";
-import { deleteToken, loadToken, saveToken } from "./token";
+import { API_BASE_URL, POLL_INTERVAL_MS } from "./config.ts";
+import { request } from "./http.ts";
+import { monitorTask, resetLiveRender } from "./monitor.ts";
+import { zipProject } from "./project.ts";
+import { deleteToken, loadToken, saveToken } from "./token.ts";
 import type {
   CreateTaskResponse,
   DeviceLoginApprovedResponse,
   DeviceLoginCreateResponse,
   DeviceLoginExpiredResponse,
   DeviceLoginPendingResponse,
-} from "./types";
-import { DOTS, SPINNER, badge, c, cls, printHeader, sleep, write } from "./ui";
+} from "./types.ts";
+import { DOTS, SPINNER, badge, c, cls, printHeader, sleep, write } from "./ui.ts";
 
 export async function login(): Promise<void> {
   cls();

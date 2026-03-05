@@ -1,9 +1,9 @@
-import type { TaskStatus, TaskStatusResponse } from "./types";
-import { request } from "./http";
-import { extractDiffs, reviewDiffsInteractively } from "./diffs";
-import { artifactPreviewLines, printArtifacts, printGlobalAnalysis } from "./artifacts";
-import { DOTS, PULSE, SPINNER, STATUS_LABEL, c, cls, hideCursor, line, showCursor, sleep, statusBadge, termWidth, write } from "./ui";
-import { POLL_INTERVAL_MS } from "./config";
+import type { TaskStatus, TaskStatusResponse } from "./types.ts";
+import { request } from "./http.ts";
+import { artifactPreviewLines, printArtifacts, printGlobalAnalysis } from "./artifacts.ts";
+import { reviewOutputArchiveAndApply } from "./output-review.ts";
+import { DOTS, PULSE, SPINNER, STATUS_LABEL, c, cls, hideCursor, line, showCursor, sleep, statusBadge, termWidth, write } from "./ui.ts";
+import { POLL_INTERVAL_MS } from "./config.ts";
 
 let lastRenderedLines = 0;
 
@@ -132,23 +132,7 @@ export async function monitorTask(taskId: string, token: string, projectDir: str
         printArtifacts(status.artifacts);
         printGlobalAnalysis(status.analysis);
 
-        const apiDiffs = Array.isArray(status.diffs) ? status.diffs : [];
-        const diffs = extractDiffs(apiDiffs);
-
-        if (apiDiffs.length === 0) {
-          console.log(`  ${c.gray}No diffs returned in task.diffs.${c.reset}`);
-          console.log("");
-          return;
-        }
-
-        if (diffs.length === 0 && apiDiffs.length > 0) {
-          console.log(`  ${c.yellow}⚠${c.reset}  Diffs received but could not be parsed.`);
-          console.log(`  ${c.gray}Raw structure (first entry):${c.reset}`);
-          console.log(`  ${c.dim}${JSON.stringify(apiDiffs[0], null, 2).split("\n").join("\n  ")}${c.reset}`);
-          console.log("");
-        } else {
-          await reviewDiffsInteractively(projectDir, diffs);
-        }
+        await reviewOutputArchiveAndApply(taskId, token, projectDir, status.downloadUrl ?? status.output ?? null);
 
         return;
       }

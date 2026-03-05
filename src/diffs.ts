@@ -1,8 +1,8 @@
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import type { ExtractedDiff, RawDiff } from "./types";
-import { runCommand, writeDiffContent } from "./project";
-import { c, line, write } from "./ui";
+import type { ExtractedDiff, RawDiff } from "./types.ts";
+import { runCommand, writeDiffContent } from "./project.ts";
+import { c, line, write } from "./ui.ts";
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;

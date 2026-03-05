@@ -1,5 +1,5 @@
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { CONFIG_DIR, TOKEN_FILE } from "./config";
+import { CONFIG_DIR, TOKEN_FILE } from "./config.ts";
 
 export async function loadToken(): Promise<string | null> {
   try {

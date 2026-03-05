@@ -61,6 +61,8 @@ export type TaskStatusResponse = {
   artifacts: Artifact[];
   diffs: RawDiff[];
   analysis: unknown;
+  downloadUrl: string | null;
+  output?: string | null;
   createdAt: number;
   updatedAt: number;
 };

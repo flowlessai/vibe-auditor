@@ -1,5 +1,5 @@
-import type { Artifact } from "./types";
-import { c, line, severityBadge, write } from "./ui";
+import type { Artifact } from "./types.ts";
+import { c, line, severityBadge, write } from "./ui.ts";
 
 export type NormalizedArtifact = {
   file: string;

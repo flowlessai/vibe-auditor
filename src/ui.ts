@@ -1,9 +1,5 @@
-import path from "node:path";
-import { readFile } from "node:fs/promises";
 import { stdout as output } from "node:process";
-import sharp from "sharp";
-import terminalImage from "terminal-image";
-import type { TaskStatus } from "./types";
+import type { TaskStatus } from "./types.ts";
 
 export const c = {
   reset: "\x1b[0m",
@@ -97,37 +93,9 @@ export function severityBadge(sev: string) {
   return badge("LOW", "\x1b[100m", c.white);
 }
 
-const HEADER_LOGO_PATH = path.join(import.meta.dir, "..", "flwolessai-code.png");
-let headerLogoCache: string | null = null;
-let headerLogoLoaded = false;
-
-async function getHeaderLogo(): Promise<string | null> {
-  if (headerLogoLoaded) return headerLogoCache;
-  headerLogoLoaded = true;
-
-  try {
-    const source = await readFile(HEADER_LOGO_PATH);
-    const normalized = await sharp(source).png().toBuffer();
-    headerLogoCache = await terminalImage.buffer(normalized, {
-      width: "36%",
-      preferNativeRender: true,
-    });
-  } catch {
-    headerLogoCache = null;
-  }
-
-  return headerLogoCache;
-}
-
 export async function printHeader() {
   console.log("");
-  const logo = await getHeaderLogo();
-  if (logo) {
-    console.log(logo);
-    console.log(`  ${c.gray}${c.bold}Vibe Auditor${c.reset}  ${c.dim}v1.0.0${c.reset}`);
-  } else {
-    console.log(`  ${c.brightCyan}${c.bold}◆ FlowLessAI${c.reset}  ${c.gray}Vibe Auditor${c.reset}  ${c.dim}v1.0.0${c.reset}`);
-  }
+  console.log(`  ${c.bold}FlowlessAI - Vibe Auditor${c.reset}`);
   console.log(`  ${line("─", c.gray)}`);
 }
 

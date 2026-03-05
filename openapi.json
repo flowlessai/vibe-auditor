@@ -211,7 +211,7 @@
     "/status/{taskId}": {
       "get": {
         "tags": ["Auditor"],
-        "summary": "Obtém status atual, artefactos, diffs e análise global",
+        "summary": "Obtém status atual, artefactos, diffs, análise global e URL de download quando concluído",
         "operationId": "getTaskStatus",
         "security": [
           {
@@ -239,6 +239,51 @@
                 }
               }
             }
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "404": {
+            "$ref": "#/components/responses/NotFound"
+          }
+        }
+      }
+    },
+    "/download/{taskId}": {
+      "get": {
+        "tags": ["Auditor"],
+        "summary": "Faz download do ZIP final da task concluída",
+        "operationId": "downloadTaskZip",
+        "security": [
+          {
+            "BearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "taskId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Arquivo ZIP final",
+            "content": {
+              "application/zip": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
           },
           "401": {
             "$ref": "#/components/responses/Unauthorized"
@@ -579,6 +624,11 @@
               }
             ]
           },
+          "downloadUrl": {
+            "type": "string",
+            "format": "uri",
+            "nullable": true
+          },
           "createdAt": {
             "type": "integer",
             "format": "int64"
@@ -588,7 +638,7 @@
             "format": "int64"
           }
         },
-        "required": ["id", "status", "paused", "artifacts", "diffs", "analysis", "createdAt", "updatedAt"]
+        "required": ["id", "status", "paused", "artifacts", "diffs", "analysis", "downloadUrl", "createdAt", "updatedAt"]
       }
     }
   }

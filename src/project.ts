@@ -73,8 +73,22 @@ async function collectFilesFallback(projectDir: string): Promise<string[]> {
   return result;
 }
 
+export async function listProjectFiles(projectDir: string): Promise<string[]> {
+  return (await collectFilesWithGit(projectDir)) ?? (await collectFilesFallback(projectDir));
+}
+
+export async function readProjectSnapshot(projectDir: string): Promise<Map<string, Uint8Array>> {
+  const fileList = await listProjectFiles(projectDir);
+  const snapshot = new Map<string, Uint8Array>();
+  for (const relPath of fileList) {
+    const content = await readFile(path.join(projectDir, relPath));
+    snapshot.set(relPath, content);
+  }
+  return snapshot;
+}
+
 export async function zipProject(projectDir: string): Promise<{ data: Uint8Array; fileCount: number }> {
-  const fileList = (await collectFilesWithGit(projectDir)) ?? (await collectFilesFallback(projectDir));
+  const fileList = await listProjectFiles(projectDir);
   if (fileList.length === 0) throw new Error("No files found to upload.");
 
   const zip = new JSZip();
