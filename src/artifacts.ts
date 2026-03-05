@@ -35,7 +35,7 @@ export function normalizeArtifact(artifact: Artifact): NormalizedArtifact {
   const summary = typeof summaryRaw === "string" ? summaryRaw : undefined;
 
   const risks = pickFirstArray(artifact, ["risks", "findings", "issues"]);
-  const suggestions = pickFirstArray(artifact, ["suggestions", "recommendations", "fixes", "actions"]);
+  const suggestions = pickFirstArray(artifact, ["suggestions", "recommendations", "actions"]);
 
   return { file, severity, risks, suggestions, summary };
 }

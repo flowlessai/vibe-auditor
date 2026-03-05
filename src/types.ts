@@ -35,7 +35,6 @@ export type Artifact = {
   risks?: string[];
   suggestions?: string[];
   recommendations?: string[];
-  fixes?: string[];
   summary?: string;
   description?: string;
   severity?: string;

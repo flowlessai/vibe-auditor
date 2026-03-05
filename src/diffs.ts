@@ -4,31 +4,179 @@ import type { ExtractedDiff, RawDiff } from "./types";
 import { runCommand, writeDiffContent } from "./project";
 import { c, line, write } from "./ui";
 
+function asString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value : undefined;
+}
+
+function toSafePath(raw: unknown): string {
+  return String(raw ?? "").trim().replace(/^([ab]\/)+/, "").replace(/^\/+/, "");
+}
+
+function detectPathFromPatch(patch: string): string | undefined {
+  const plusLine = patch.split("\n").find((line) => line.startsWith("+++ "));
+  if (plusLine) {
+    const raw = plusLine.replace("+++ ", "").trim();
+    if (raw !== "/dev/null") return toSafePath(raw);
+  }
+
+  const diffGit = patch.match(/^diff --git a\/(.+?) b\/(.+)$/m);
+  if (diffGit) {
+    return toSafePath(diffGit[2]);
+  }
+
+  return undefined;
+}
+
+function splitMultiFilePatch(patch: string): Array<{ path?: string; patch: string }> {
+  const lines = patch.split("\n");
+  const chunks: Array<{ path?: string; patch: string }> = [];
+  let current: string[] = [];
+
+  const flush = () => {
+    if (current.length === 0) return;
+    const chunkPatch = current.join("\n");
+    chunks.push({ path: detectPathFromPatch(chunkPatch), patch: chunkPatch });
+    current = [];
+  };
+
+  for (const line of lines) {
+    if (line.startsWith("diff --git ") && current.length > 0) {
+      flush();
+    }
+    current.push(line);
+  }
+  flush();
+
+  return chunks.length > 1 ? chunks : [{ path: detectPathFromPatch(patch), patch }];
+}
+
+function extractPath(obj: Record<string, unknown>): string | undefined {
+  const candidates = [
+    obj.path,
+    obj.filePath,
+    obj.filename,
+    obj.file,
+    obj.targetPath,
+    obj.newPath,
+    obj.relativePath,
+  ];
+  for (const candidate of candidates) {
+    const str = asString(candidate);
+    if (str) return toSafePath(str);
+  }
+  return undefined;
+}
+
+function extractPatch(obj: Record<string, unknown>): string | undefined {
+  const candidates = [
+    obj.patch,
+    obj.diff,
+    obj.unifiedDiff,
+    obj.gitDiff,
+    obj.rawDiff,
+    obj.changes,
+  ];
+  for (const candidate of candidates) {
+    const str = asString(candidate);
+    if (str) return str;
+  }
+  return undefined;
+}
+
+function extractNewContent(obj: Record<string, unknown>): string | undefined {
+  const candidates = [
+    obj.newContent,
+    obj.content,
+    obj.after,
+    obj.updatedContent,
+    obj.newText,
+    obj.replacement,
+  ];
+  for (const candidate of candidates) {
+    const str = asString(candidate);
+    if (str) return str;
+  }
+
+  const maybeLines = obj.lines;
+  if (Array.isArray(maybeLines) && maybeLines.length > 0) {
+    const reconstructed = maybeLines
+      .filter((line) => line && typeof line === "object")
+      .map((line) => line as Record<string, unknown>)
+      .filter((line) => String(line.type ?? "context") !== "del")
+      .map((line) => String(line.content ?? ""))
+      .join("\n");
+    return reconstructed.trim() ? reconstructed : undefined;
+  }
+
+  return undefined;
+}
+
+function collectDiffObjects(rawDiffs: RawDiff[]): Array<Record<string, unknown>> {
+  const queue: unknown[] = [...rawDiffs];
+  const result: Array<Record<string, unknown>> = [];
+
+  while (queue.length > 0) {
+    const item = queue.shift();
+    if (!item) continue;
+
+    if (typeof item === "string") {
+      try {
+        const parsed = JSON.parse(item) as unknown;
+        queue.push(parsed);
+      } catch {
+        result.push({ diff: item });
+      }
+      continue;
+    }
+
+    if (Array.isArray(item)) {
+      queue.push(...item);
+      continue;
+    }
+
+    if (typeof item === "object") {
+      const obj = item as Record<string, unknown>;
+      if (Array.isArray(obj.diffs)) {
+        queue.push(...obj.diffs);
+      }
+      result.push(obj);
+    }
+  }
+
+  return result;
+}
+
 export function extractDiffs(rawDiffs: RawDiff[]): ExtractedDiff[] {
-  return rawDiffs
-    .filter((entry) => entry && typeof entry === "object")
-    .map((obj) => {
-      const filePath = obj.path ?? obj.filePath ?? obj.filename ?? obj.file ?? "unknown-file";
+  const out: ExtractedDiff[] = [];
+  const seen = new Set<string>();
 
-      const patch =
-        typeof obj.patch === "string"
-          ? obj.patch
-          : typeof obj.diff === "string"
-            ? obj.diff
-            : undefined;
+  for (const obj of collectDiffObjects(rawDiffs)) {
+    const patch = extractPatch(obj);
+    const explicitPath = extractPath(obj);
+    const newContent = extractNewContent(obj);
 
-      const newContent =
-        typeof obj.newContent === "string"
-          ? obj.newContent
-          : typeof obj.content === "string"
-            ? obj.content
-            : typeof obj.after === "string"
-              ? obj.after
-              : undefined;
+    if (patch) {
+      const patchChunks = splitMultiFilePatch(patch);
+      for (const chunk of patchChunks) {
+        const path = chunk.path ?? explicitPath ?? "unknown-file";
+        if (path === "unknown-file") continue;
+        const key = `${path}\u0000${chunk.patch}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ path, patch: chunk.patch });
+      }
+      continue;
+    }
 
-      return { path: String(filePath), patch, newContent };
-    })
-    .filter((d) => d.path !== "unknown-file" && (d.patch || d.newContent));
+    if (explicitPath && newContent) {
+      const key = `${explicitPath}\u0000${newContent}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push({ path: explicitPath, newContent });
+    }
+  }
+
+  return out;
 }
 
 function printPatch(patch: string) {
