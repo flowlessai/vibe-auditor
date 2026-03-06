@@ -1,15 +1,15 @@
 {
   "name": "vibe-auditor",
-  "version": "0.1.1",
+  "version": "0.1.4",
   "bin": {
     "auditor": "./dist/index.js"
   },
   "type": "module",
   "private": false,
   "scripts": {
-    "build": "bun build index.ts --outfile dist/index.js --target node",
+    "build": "tsc",
     "start": "bun run index.ts",
-    "check": "bunx tsc --noEmit"
+    "check": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/bun": "latest"
@@ -22,5 +22,8 @@
     "jszip": "^3.10.1",
     "sharp": "^0.34.5",
     "terminal-image": "^4.2.0"
-  }
+  },
+  "files":[
+    "dist"
+  ]
 }

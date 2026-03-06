@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
@@ -8,27 +9,40 @@ export async function runCommand(
   cwd?: string,
   stdinContent?: string | Uint8Array
 ): Promise<{ stdout: Uint8Array; stderr: string; code: number }> {
-  const proc = Bun.spawn({
-    cmd: args,
+  const [command, ...commandArgs] = args;
+  if (!command) throw new Error("No command provided");
+
+  const proc = spawn(command, commandArgs, {
     cwd,
-    stdin: stdinContent ? "pipe" : "ignore",
-    stdout: "pipe",
-    stderr: "pipe",
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+
+  const stdoutChunks: Buffer[] = [];
+  const stderrChunks: Buffer[] = [];
+
+  proc.stdout.on("data", (chunk: Buffer) => {
+    stdoutChunks.push(chunk);
+  });
+  proc.stderr.on("data", (chunk: Buffer) => {
+    stderrChunks.push(chunk);
   });
 
   if (stdinContent) {
-    const data = typeof stdinContent === "string" ? new TextEncoder().encode(stdinContent) : stdinContent;
-    proc.stdin?.write(data);
-    proc.stdin?.end();
+    const data = typeof stdinContent === "string" ? Buffer.from(stdinContent, "utf8") : Buffer.from(stdinContent);
+    proc.stdin.write(data);
   }
+  proc.stdin.end();
 
-  const [stdoutBuf, stderrBuf, code] = await Promise.all([
-    new Response(proc.stdout).arrayBuffer(),
-    new Response(proc.stderr).text(),
-    proc.exited,
-  ]);
+  const code = await new Promise<number>((resolve, reject) => {
+    proc.on("error", reject);
+    proc.on("close", (exitCode) => resolve(exitCode ?? 1));
+  });
 
-  return { stdout: new Uint8Array(stdoutBuf), stderr: stderrBuf, code };
+  return {
+    stdout: new Uint8Array(Buffer.concat(stdoutChunks)),
+    stderr: Buffer.concat(stderrChunks).toString("utf8"),
+    code,
+  };
 }
 
 async function collectFilesWithGit(projectDir: string): Promise<string[] | null> {
