@@ -35,6 +35,17 @@ export async function main(): Promise<void> {
     return;
   }
 
+  // Check if command is a valid directory path before treating as task name
+  try {
+    const projectPath = command === "." ? process.cwd() : path.resolve(process.cwd(), command);
+    const stats = await stat(projectPath);
+    if (!stats.isDirectory()) {
+      throw new Error(`Invalid command: ${command}`);
+    }
+  } catch {
+    throw new Error(`Unknown command: ${command}. Run 'auditor --help' for usage.`);
+  }
+
   const mFlag = args.indexOf("-m");
   const message = mFlag !== -1 && args[mFlag + 1] ? args[mFlag + 1] : undefined;
   await createTaskAndMonitor(command, message);
