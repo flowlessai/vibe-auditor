@@ -123,3 +123,41 @@ export async function printHelp() {
   console.log(`  ${c.gray}flowlessai.one  ·  sales@flowlessai.one${c.reset}`);
   console.log("");
 }
+
+import React from "react";
+import { Box, Text } from "ink";
+
+export function StatusBadgeInk({ status }: { status: TaskStatus | "PAUSED" }) {
+  const map: Record<string, { bg: string; fg: string }> = {
+    INDEXING: { bg: "cyan", fg: "black" },
+    GENERATING_ARTIFACTS: { bg: "magenta", fg: "black" },
+    SYSTEM_CHECK: { bg: "blue", fg: "white" },
+    APPLYING_DIFFS: { bg: "green", fg: "black" },
+    DONE: { bg: "green", fg: "black" },
+    FAILED: { bg: "red", fg: "white" },
+    PAUSED: { bg: "yellow", fg: "black" },
+  };
+  const colors = map[status] ?? { bg: "gray", fg: "white" };
+  return <Text backgroundColor={colors.bg} color={colors.fg} bold> {status} </Text>;
+}
+
+export function SeverityBadgeInk({ sev }: { sev: string }) {
+  const s = sev?.toUpperCase() ?? "";
+  if (s === "CRITICAL") return <Text backgroundColor="red" color="white" bold> CRITICAL </Text>;
+  if (s === "HIGH") return <Text backgroundColor="redBright" color="black" bold> HIGH </Text>;
+  if (s === "MEDIUM") return <Text backgroundColor="yellow" color="black" bold> MEDIUM </Text>;
+  return <Text backgroundColor="gray" color="white" bold> LOW </Text>;
+}
+
+export function Divider({ char = "─", width = 76 }: { char?: string; width?: number }) {
+  return <Text color="gray" dimColor>{char.repeat(width)}</Text>;
+}
+
+export function Header() {
+  return (
+    <Box flexDirection="column" marginBottom={1}>
+      <Text bold>FlowlessAI - Vibe Auditor</Text>
+      <Divider />
+    </Box>
+  );
+}

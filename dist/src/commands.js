@@ -1,3 +1,7 @@
+import { jsx as _jsx, jsxs as _jsxs } from "react/jsx-runtime";
+import React, { useState, useEffect } from "react";
+import { render, Box, Text, useApp } from "ink";
+import Spinner from "ink-spinner";
 import { stat } from "node:fs/promises";
 import path from "node:path";
 import { API_BASE_URL, POLL_INTERVAL_MS } from "./config.js";
@@ -5,62 +9,85 @@ import { request } from "./http.js";
 import { monitorTask, resetLiveRender } from "./monitor.js";
 import { zipProject } from "./project.js";
 import { deleteToken, loadToken, saveToken } from "./token.js";
-import { DOTS, SPINNER, badge, c, cls, printHeader, sleep, write } from "./ui.js";
-export async function login() {
-    cls();
-    await printHeader();
-    console.log("");
-    console.log(`  ${c.bold}Device Authentication${c.reset}`);
-    console.log("");
-    const response = await request("POST", "/auth/login");
+import { Header, c, cls, printHeader, write } from "./ui.js";
+function LoginView({ response, onComplete }) {
+    const { exit } = useApp();
+    const [remaining, setRemaining] = useState(response.expiresIn);
+    const [status, setStatus] = useState("pending");
+    const [errorMsg, setErrorMsg] = useState("");
     const expiresAt = Date.now() + response.expiresIn * 1000;
-    console.log(`  ${c.gray}Open this URL in your browser:${c.reset}`);
-    console.log("");
-    console.log(`  ${c.brightCyan}${c.underline}${response.verificationUrl}${c.reset}`);
-    console.log("");
-    console.log(`  ${c.gray}Enter this code when prompted:${c.reset}`);
-    console.log("");
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setRemaining(Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000)));
+        }, 100);
+        return () => clearInterval(timer);
+    }, [expiresAt]);
+    useEffect(() => {
+        let stopped = false;
+        const poll = async () => {
+            while (!stopped && Date.now() < expiresAt) {
+                try {
+                    const pollRes = await fetch(`${API_BASE_URL}/auth/login/${response.authorizationId}`);
+                    if (pollRes.status === 202 || pollRes.status === 200) {
+                        const body = (await pollRes.json());
+                        if ("status" in body && body.status === "approved") {
+                            await saveToken(body.accessToken);
+                            setStatus("approved");
+                            stopped = true;
+                            onComplete();
+                            exit();
+                            return;
+                        }
+                        else if ("status" in body && body.status === "expired") {
+                            setStatus("expired");
+                            stopped = true;
+                            onComplete();
+                            exit();
+                            return;
+                        }
+                    }
+                    else if (!pollRes.ok && pollRes.status !== 202) {
+                        setErrorMsg(`Poll failed (${pollRes.status})`);
+                        stopped = true;
+                        onComplete();
+                        exit();
+                        return;
+                    }
+                }
+                catch (e) {
+                    // ignore
+                }
+                await new Promise(r => setTimeout(r, POLL_INTERVAL_MS));
+            }
+            if (!stopped) {
+                setStatus("expired");
+                onComplete();
+                exit();
+            }
+        };
+        poll();
+        return () => { stopped = true; };
+    }, [expiresAt, response.authorizationId, onComplete, exit]);
     const codeChars = response.code.split("");
     const formatted = codeChars.slice(0, 3).join(" ") + "  " + codeChars.slice(3).join(" ");
-    console.log(`  ${c.bgBlack}  ${c.brightYellow}${c.bold}  ${formatted}  ${c.reset}${c.bgBlack}  ${c.reset}`);
-    console.log("");
-    let frame = 0;
-    const interval = setInterval(() => {
-        const spin = SPINNER[frame % SPINNER.length];
-        const remaining = Math.max(0, Math.ceil((expiresAt - Date.now()) / 1000));
-        process.stdout.write(`\r  ${c.cyan}${spin}${c.reset}  ${c.gray}Waiting for confirmation${c.reset}  ${DOTS[frame % DOTS.length]}  ${c.dim}${remaining}s${c.reset}  `);
-        frame++;
-    }, 100);
-    try {
-        while (Date.now() < expiresAt) {
-            const poll = await fetch(`${API_BASE_URL}/auth/login/${response.authorizationId}`);
-            if (poll.status === 202 || poll.status === 200) {
-                const body = (await poll.json());
-                if ("status" in body && body.status === "approved") {
-                    clearInterval(interval);
-                    process.stdout.write("\r" + " ".repeat(60) + "\r");
-                    await saveToken(body.accessToken);
-                    console.log(`  ${c.brightGreen}✓${c.reset}  ${c.bold}Authenticated successfully${c.reset}`);
-                    console.log(`  ${c.gray}Token saved. You can now run ${c.reset}${c.brightCyan}auditor .${c.reset}`);
-                    console.log("");
-                    return;
-                }
-                if ("status" in body && body.status === "expired") {
-                    clearInterval(interval);
-                    throw new Error("Code expired. Run `auditor login` again.");
-                }
-            }
-            if (!poll.ok && poll.status !== 202) {
-                clearInterval(interval);
-                throw new Error(`Poll failed (${poll.status})`);
-            }
-            await sleep(POLL_INTERVAL_MS);
-        }
+    if (status === "approved") {
+        return (_jsxs(Box, { flexDirection: "column", paddingY: 1, children: [_jsx(Header, {}), _jsxs(Box, { children: [_jsx(Text, { color: "greenBright", children: "\u2713 " }), _jsx(Text, { bold: true, children: "Authenticated successfully" })] }), _jsxs(Text, { color: "gray", children: ["Token saved. You can now run ", _jsx(Text, { color: "cyanBright", children: "auditor ." })] })] }));
     }
-    finally {
-        clearInterval(interval);
+    if (status === "expired" || errorMsg) {
+        return (_jsxs(Box, { flexDirection: "column", paddingY: 1, children: [_jsx(Header, {}), _jsxs(Box, { children: [_jsx(Text, { color: "redBright", children: "\u2717 " }), _jsx(Text, { bold: true, children: "Login failed" })] }), _jsx(Text, { color: "gray", children: errorMsg || "Code expired. Run auditor login again." })] }));
     }
-    throw new Error("Login timeout. Run `auditor login` again.");
+    return (_jsxs(Box, { flexDirection: "column", paddingY: 1, children: [_jsx(Header, {}), _jsx(Box, { marginY: 1, children: _jsx(Text, { bold: true, children: "Device Authentication" }) }), _jsx(Text, { color: "gray", children: "Open this URL in your browser:" }), _jsx(Text, { color: "cyanBright", underline: true, children: response.verificationUrl }), _jsx(Box, { marginTop: 1, children: _jsx(Text, { color: "gray", children: "Enter this code when prompted:" }) }), _jsx(Box, { marginY: 1, children: _jsxs(Text, { backgroundColor: "black", color: "yellowBright", bold: true, children: ["  ", formatted, "  "] }) }), _jsxs(Box, { children: [_jsxs(Text, { color: "cyan", children: [_jsx(Spinner, {}), " "] }), _jsx(Text, { color: "gray", children: "Waiting for confirmation " }), _jsxs(Text, { dimColor: true, children: [remaining, "s"] })] })] }));
+}
+function StatusView({ account, error }) {
+    if (error) {
+        return (_jsxs(Box, { flexDirection: "column", paddingY: 1, children: [_jsx(Header, {}), _jsxs(Box, { marginTop: 1, children: [_jsx(Text, { color: "yellow", children: "\u26A0 " }), _jsx(Text, { children: "Could not fetch account info." })] }), _jsxs(Text, { color: "gray", children: ["Visit ", _jsx(Text, { color: "cyanBright", children: "flowlessai.one/billing" })] })] }));
+    }
+    return (_jsxs(Box, { flexDirection: "column", paddingY: 1, paddingX: 2, children: [_jsx(Header, {}), _jsx(Box, { marginTop: 1, marginBottom: 1, children: _jsx(Text, { bold: true, children: "Account Status" }) }), _jsxs(Box, { flexDirection: "column", children: [account.email && (_jsxs(Box, { children: [_jsx(Box, { width: 10, children: _jsx(Text, { color: "gray", children: "Email" }) }), _jsx(Text, { color: "whiteBright", children: account.email })] })), _jsxs(Box, { children: [_jsx(Box, { width: 10, children: _jsx(Text, { color: "gray", children: "Plan" }) }), _jsxs(Text, { backgroundColor: "cyan", color: "black", bold: true, children: [" ", account.plan?.toUpperCase() ?? "FREE", " "] })] }), _jsxs(Box, { children: [_jsx(Box, { width: 10, children: _jsx(Text, { color: "gray", children: "Credits" }) }), _jsx(Text, { color: "yellowBright", bold: true, children: account.credits?.toLocaleString() }), _jsx(Text, { color: "gray", children: " available" })] })] })] }));
+}
+export async function login() {
+    const response = await request("POST", "/auth/login");
+    const { waitUntilExit } = render(_jsx(LoginView, { response: response, onComplete: () => { } }));
+    await waitUntilExit();
 }
 export async function logout() {
     cls();
@@ -129,28 +156,20 @@ export async function resumeTask(taskId) {
 }
 export async function showStatus() {
     const token = await loadToken();
-    cls();
-    await printHeader();
-    console.log("");
     if (!token) {
-        console.log(`  ${c.yellow}⚠${c.reset}  Not logged in.  Run ${c.brightCyan}auditor login${c.reset}`);
-        console.log("");
+        cls();
+        await printHeader();
+        console.log(`\n  ${c.yellow}⚠${c.reset}  Not logged in.  Run ${c.brightCyan}auditor login${c.reset}\n`);
         return;
     }
+    let account = null;
+    let error = false;
     try {
-        const account = await request("GET", "/account", { token });
-        console.log(`  ${c.bold}Account Status${c.reset}`);
-        console.log("");
-        if (account.email) {
-            console.log(`  ${c.gray}Email${c.reset}    ${c.brightWhite}${account.email}${c.reset}`);
-        }
-        console.log(`  ${c.gray}Plan${c.reset}     ${badge(account.plan?.toUpperCase() ?? "FREE", c.bgCyan, c.black)}`);
-        console.log(`  ${c.gray}Credits${c.reset}  ${c.brightYellow}${c.bold}${account.credits.toLocaleString()}${c.reset}  ${c.gray}available${c.reset}`);
-        console.log("");
+        account = await request("GET", "/account", { token });
     }
     catch {
-        console.log(`  ${c.yellow}⚠${c.reset}  Could not fetch account info.`);
-        console.log(`  ${c.gray}Visit${c.reset}  ${c.brightCyan}flowlessai.one/billing${c.reset}`);
-        console.log("");
+        error = true;
     }
+    const { waitUntilExit } = render(_jsx(StatusView, { account: account, error: error }));
+    await waitUntilExit();
 }

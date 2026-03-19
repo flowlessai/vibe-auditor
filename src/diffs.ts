@@ -2,7 +2,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import type { ExtractedDiff, RawDiff } from "./types.ts";
 import { runCommand, writeDiffContent } from "./project.ts";
-import { c, line, write } from "./ui.ts";
+import { c, line, write } from "./ui.tsx";
 
 function asString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value : undefined;

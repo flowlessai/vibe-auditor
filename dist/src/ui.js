@@ -1,3 +1,4 @@
+import { jsxs as _jsxs, jsx as _jsx } from "react/jsx-runtime";
 import { stdout as output } from "node:process";
 export const c = {
     reset: "\x1b[0m",
@@ -109,4 +110,35 @@ export async function printHelp() {
     console.log(`  ${line()}`);
     console.log(`  ${c.gray}flowlessai.one  ·  sales@flowlessai.one${c.reset}`);
     console.log("");
+}
+import React from "react";
+import { Box, Text } from "ink";
+export function StatusBadgeInk({ status }) {
+    const map = {
+        INDEXING: { bg: "cyan", fg: "black" },
+        GENERATING_ARTIFACTS: { bg: "magenta", fg: "black" },
+        SYSTEM_CHECK: { bg: "blue", fg: "white" },
+        APPLYING_DIFFS: { bg: "green", fg: "black" },
+        DONE: { bg: "green", fg: "black" },
+        FAILED: { bg: "red", fg: "white" },
+        PAUSED: { bg: "yellow", fg: "black" },
+    };
+    const colors = map[status] ?? { bg: "gray", fg: "white" };
+    return _jsxs(Text, { backgroundColor: colors.bg, color: colors.fg, bold: true, children: [" ", status, " "] });
+}
+export function SeverityBadgeInk({ sev }) {
+    const s = sev?.toUpperCase() ?? "";
+    if (s === "CRITICAL")
+        return _jsx(Text, { backgroundColor: "red", color: "white", bold: true, children: " CRITICAL " });
+    if (s === "HIGH")
+        return _jsx(Text, { backgroundColor: "redBright", color: "black", bold: true, children: " HIGH " });
+    if (s === "MEDIUM")
+        return _jsx(Text, { backgroundColor: "yellow", color: "black", bold: true, children: " MEDIUM " });
+    return _jsx(Text, { backgroundColor: "gray", color: "white", bold: true, children: " LOW " });
+}
+export function Divider({ char = "─", width = 76 }) {
+    return _jsx(Text, { color: "gray", dimColor: true, children: char.repeat(width) });
+}
+export function Header() {
+    return (_jsxs(Box, { flexDirection: "column", marginBottom: 1, children: [_jsx(Text, { bold: true, children: "FlowlessAI - Vibe Auditor" }), _jsx(Divider, {})] }));
 }

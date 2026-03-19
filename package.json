@@ -1,6 +1,6 @@
 {
   "name": "vibe-auditor",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "bin": {
     "auditor": "./dist/index.js"
   },
@@ -12,18 +12,25 @@
     "check": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/diff": "^8.0.0",
+    "@types/react": "^19.2.14"
   },
   "peerDependencies": {
     "typescript": "^5"
   },
   "dependencies": {
+    "cli-highlight": "^2.1.11",
+    "diff": "^8.0.3",
     "ignore": "^7.0.5",
+    "ink": "^6.8.0",
+    "ink-spinner": "^5.0.0",
     "jszip": "^3.10.1",
+    "react": "^19.2.4",
     "sharp": "^0.34.5",
     "terminal-image": "^4.2.0"
   },
-  "files":[
+  "files": [
     "dist"
   ]
 }

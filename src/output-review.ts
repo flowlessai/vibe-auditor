@@ -2,9 +2,11 @@ import { createInterface } from "node:readline/promises";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
+import { structuredPatch } from "diff";
+import { highlight, supportsLanguage } from "cli-highlight";
 import { API_BASE_URL } from "./config.ts";
 import { readProjectSnapshot } from "./project.ts";
-import { c, line } from "./ui.ts";
+import { c, line, termWidth } from "./ui.tsx";
 
 type ChangeKind = "added" | "modified" | "removed";
 
@@ -44,52 +46,64 @@ function decodeUtf8(data: Uint8Array): string {
   return new TextDecoder().decode(data);
 }
 
-function toPatch(change: FileChange): string {
+function printFileDiff(change: FileChange) {
   const before = change.before ?? new Uint8Array();
   const after = change.after ?? new Uint8Array();
   const hasBinary = isProbablyBinary(before) || isProbablyBinary(after);
 
-  const header = [
-    `diff --git a/${change.path} b/${change.path}`,
-    `--- ${change.kind === "added" ? "/dev/null" : `a/${change.path}`}`,
-    `+++ ${change.kind === "removed" ? "/dev/null" : `b/${change.path}`}`,
-  ];
-
   if (hasBinary) {
-    return [...header, "Binary files differ"].join("\n");
+    console.log(`  ${c.gray}Binary files differ${c.reset}`);
+    return;
   }
 
   const beforeText = decodeUtf8(before);
   const afterText = decodeUtf8(after);
-  const beforeLines = beforeText.length > 0 ? beforeText.split("\n") : [];
-  const afterLines = afterText.length > 0 ? afterText.split("\n") : [];
+  
+  const ext = path.extname(change.path).slice(1);
+  const lang = supportsLanguage(ext) ? ext : "txt";
 
-  const hunkHeader = `@@ -${beforeLines.length > 0 ? "1" : "0"},${countLines(beforeText)} +${afterLines.length > 0 ? "1" : "0"},${countLines(afterText)} @@`;
-  const removed = beforeLines.map((l) => `-${l}`);
-  const added = afterLines.map((l) => `+${l}`);
+  const highlightedBefore = highlight(beforeText, { language: lang }).split("\n");
+  const highlightedAfter = highlight(afterText, { language: lang }).split("\n");
 
-  return [...header, hunkHeader, ...removed, ...added].join("\n");
-}
+  const patch = structuredPatch(change.path, change.path, beforeText, afterText, "", "", { context: 3 });
 
-function printPatch(patch: string) {
-  for (const patchLine of patch.split("\n")) {
-    if (patchLine.startsWith("+++") || patchLine.startsWith("---") || patchLine.startsWith("diff --git")) {
-      console.log(`  ${c.brightCyan}${patchLine}${c.reset}`);
-      continue;
+  if (patch.hunks.length === 0) {
+    // Handle empty file changes gracefully when hunks are empty
+    if (change.kind === "added" && afterText.length === 0) {
+      console.log(`  ${c.gray}(empty file created)${c.reset}`);
+    } else if (change.kind === "removed" && beforeText.length === 0) {
+      console.log(`  ${c.gray}(empty file removed)${c.reset}`);
     }
-    if (patchLine.startsWith("@@")) {
-      console.log(`  ${c.brightMagenta}${patchLine}${c.reset}`);
-      continue;
+    return;
+  }
+
+  for (const hunk of patch.hunks) {
+    console.log(`  ${c.brightMagenta}@@ -${hunk.oldStart},${hunk.oldLines} +${hunk.newStart},${hunk.newLines} @@${c.reset}`);
+    let oldIdx = hunk.oldStart === 0 ? 0 : hunk.oldStart - 1;
+    let newIdx = hunk.newStart === 0 ? 0 : hunk.newStart - 1;
+
+    const w = termWidth();
+    for (const line of hunk.lines) {
+      if (line.startsWith("+")) {
+        const text = `  + ${highlightedAfter[newIdx] ?? ""}`;
+        const rawLength = `  + ${afterText.split("\n")[newIdx] ?? ""}`.length;
+        const padding = " ".repeat(Math.max(0, w - rawLength));
+        console.log(`\x1b[102m${text}${padding}\x1b[0m`);
+        newIdx++;
+      } else if (line.startsWith("-")) {
+        const text = `  - ${highlightedBefore[oldIdx] ?? ""}`;
+        const rawLength = `  - ${beforeText.split("\n")[oldIdx] ?? ""}`.length;
+        const padding = " ".repeat(Math.max(0, w - rawLength));
+        console.log(`\x1b[41m${text}${padding}\x1b[0m`);
+        oldIdx++;
+      } else if (line.startsWith("\\")) {
+        console.log(`  ${c.gray}${line}${c.reset}`);
+      } else {
+        console.log(`    ${highlightedAfter[newIdx] ?? ""}`);
+        newIdx++;
+        oldIdx++;
+      }
     }
-    if (patchLine.startsWith("+")) {
-      console.log(`  ${c.brightGreen}${patchLine}${c.reset}`);
-      continue;
-    }
-    if (patchLine.startsWith("-")) {
-      console.log(`  ${c.brightRed}${patchLine}${c.reset}`);
-      continue;
-    }
-    console.log(`  ${c.gray}${patchLine}${c.reset}`);
   }
 }
 
@@ -207,7 +221,7 @@ export async function reviewOutputArchiveAndApply(
   for (const change of changes) {
     const labelColor = change.kind === "added" ? c.brightGreen : change.kind === "removed" ? c.brightRed : c.brightYellow;
     console.log(`  ${labelColor}${change.kind.toUpperCase()}${c.reset}  ${c.bold}${change.path}${c.reset}`);
-    printPatch(toPatch(change));
+    printFileDiff(change);
     console.log("");
   }
 

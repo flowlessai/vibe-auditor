@@ -1,5 +1,5 @@
-import { createTaskAndMonitor, login, logout, resumeTask, showStatus } from "./commands.ts";
-import { c, printHelp, showCursor } from "./ui.ts";
+import { createTaskAndMonitor, login, logout, resumeTask, showStatus } from "./commands.tsx";
+import { c, printHelp, showCursor } from "./ui.tsx";
 
 export async function main(): Promise<void> {
   const args = process.argv.slice(2);
